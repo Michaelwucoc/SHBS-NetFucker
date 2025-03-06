@@ -14,7 +14,7 @@ import webbrowser
 class NetFucker:
     def __init__(self):
         self.root = tk.Tk()
-        self.current_version = "v20250306"
+        self.current_version = "v20250306_01"
         self.root.title(f"SHBS NetFucker {self.current_version}")
         self.root.geometry("500x600")
         self.root.configure(bg='#f0f0f0')
@@ -93,8 +93,8 @@ class NetFucker:
         # 初始化系统信息
         self.init_system_info()
         
-        # 执行初始网络检测
-        self.check_network_status(3)
+        # 在界面显示后执行网络检测
+        self.root.after(1000, lambda: threading.Thread(target=lambda: self.check_network_status(3), daemon=True).start())
     
     def log(self, message):
         self.log_text.insert(tk.END, f"{time.strftime('%Y-%m-%d %H:%M:%S')} {message}\n")
@@ -328,6 +328,68 @@ class NetFucker:
             self.connect_button.config(state='normal')
 
     
+    def download_update(self, version):
+        try:
+            # 确定系统类型和下载文件名
+            system_suffix = "Darwin" if self.os_type == "Darwin" else "Windows"
+            filename = f"NetFucker_{system_suffix}.zip"
+            
+            # 准备下载链接（主源和镜像源）
+            urls = [
+                f"https://github.com/Michaelwucoc/SHBS-NetFucker/releases/download/{version}/{filename}",
+                f"https://github.shbs.club/https://github.com/Michaelwucoc/SHBS-NetFucker/releases/download/{version}/{filename}"
+            ]
+            
+            # 创建临时下载目录
+            import tempfile
+            import os
+            temp_dir = tempfile.gettempdir()
+            download_path = os.path.join(temp_dir, filename)
+            
+            # 尝试从不同源下载
+            for url in urls:
+                try:
+                    self.log(f"正在从 {url} 下载更新...")
+                    response = requests.get(url, stream=True, timeout=30)
+                    response.raise_for_status()
+                    
+                    # 获取文件大小
+                    total_size = int(response.headers.get('content-length', 0))
+                    block_size = 1024
+                    downloaded = 0
+                    
+                    # 下载文件
+                    with open(download_path, 'wb') as f:
+                        for data in response.iter_content(block_size):
+                            downloaded += len(data)
+                            f.write(data)
+                            # 计算下载进度
+                            progress = (downloaded / total_size) * 100 if total_size > 0 else 0
+                            self.log(f"下载进度: {progress:.1f}%")
+                    
+                    self.log("下载完成！")
+                    
+                    # 提示用户安装更新
+                    message = f"更新已下载完成\n\n文件保存在: {download_path}\n\n是否立即安装？"
+                    if messagebox.askyesno("安装更新", message):
+                        # 打开文件所在目录
+                        if self.os_type == "Darwin":
+                            subprocess.run(['open', '-R', download_path])
+                        else:
+                            subprocess.run(['explorer', '/select,', download_path])
+                    
+                    return True
+                    
+                except Exception as e:
+                    self.log(f"从 {url} 下载失败: {str(e)}")
+                    continue
+            
+            raise Exception("所有下载源均失败")
+            
+        except Exception as e:
+            self.log(f"下载更新失败: {str(e)}")
+            return False
+    
     def check_update(self):
         def update_gui(state, text):
             self.check_update_button.config(state=state)
@@ -336,8 +398,10 @@ class NetFucker:
         def handle_update_result(success, version=None, error=None):
             if success:
                 if version != self.current_version:
-                    message = f"发现新版本 {version}\n\n是否前往下载页面？"
+                    message = f"发现新版本 {version}\n\n是否自动下载更新？"
                     if messagebox.askyesno("更新提示", message):
+                        self.download_update(version)
+                    else:
                         webbrowser.open(f"https://github.com/Michaelwucoc/SHBS-NetFucker/releases/tag/{version}")
                 else:
                     self.log("当前已是最新版本")
