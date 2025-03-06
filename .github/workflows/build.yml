@@ -78,16 +78,11 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     steps:
-    - name: Get current date and update number
+    - name: Get version from netfucker.py
       id: version
       run: |
-        date=$(date +'%Y%m%d')
-        update_num="01"
-        if [[ $(gh release list -L 1) =~ v${date}_([0-9]+) ]]; then
-          current_num=${BASH_REMATCH[1]}
-          update_num=$(printf "%02d" $((10#$current_num + 1)))
-        fi
-        echo "version=v${date}_${update_num}" >> $GITHUB_OUTPUT
+        version=$(grep -o 'self.current_version = "[^"]*"' netfucker.py | cut -d'"' -f2)
+        echo "version=$version" >> $GITHUB_OUTPUT
       
     - name: Download all artifacts
       uses: actions/download-artifact@v4

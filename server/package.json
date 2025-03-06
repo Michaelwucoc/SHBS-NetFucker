@@ -1,0 +1,14 @@
+{
+  "name": "netfucker-server",
+  "version": "1.0.0",
+  "description": "NetFucker Server for online users statistics",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.16.0",
+    "cors": "^2.8.5"
+  }
+}

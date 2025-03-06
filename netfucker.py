@@ -10,13 +10,18 @@ import subprocess
 import threading
 import time
 import webbrowser
+import math
+import concurrent.futures
+import os
+import websocket
 
 class NetFucker:
     def __init__(self):
         self.root = tk.Tk()
-        self.current_version = "v20250306_01"
+        self.current_version = "v20250306_01"  # 定义为GitHub Release版本号
+        self.release = False  # 控制是否进行GitHub Actions构建和发布
         self.root.title(f"SHBS NetFucker {self.current_version}")
-        self.root.geometry("500x600")
+        self.root.geometry("600x700")
         self.root.configure(bg='#f0f0f0')
         
         # 获取操作系统信息
@@ -31,61 +36,118 @@ class NetFucker:
         self.root.grid_columnconfigure(0, weight=1)
         self.main_frame.grid_columnconfigure(1, weight=1)
         
+        # 初始化WebSocket连接
+        self.ws = None
+        self.ws_connected = False
+        self.ws_reconnect_timer = None
+        self.online_users = []
+        self.total_network_upload = 0
+        self.total_network_download = 0
+        
         # 系统信息显示
-        ttk.Label(self.main_frame, text="操作系统:").grid(row=0, column=0, sticky=tk.W)
-        self.os_label = ttk.Label(self.main_frame, text=f"{self.os_type}")
+        info_frame = ttk.LabelFrame(self.main_frame, text="系统信息", padding="5")
+        info_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
+        
+        ttk.Label(info_frame, text="操作系统:").grid(row=0, column=0, sticky=tk.W)
+        self.os_label = ttk.Label(info_frame, text=f"{self.os_type}")
         self.os_label.grid(row=0, column=1, sticky=tk.W)
         
-        # MAC地址显示
-        ttk.Label(self.main_frame, text="MAC地址:").grid(row=1, column=0, sticky=tk.W)
-        self.mac_label = ttk.Label(self.main_frame, text="获取中...")
+        ttk.Label(info_frame, text="MAC地址:").grid(row=1, column=0, sticky=tk.W)
+        self.mac_label = ttk.Label(info_frame, text="获取中...")
         self.mac_label.grid(row=1, column=1, sticky=tk.W)
         
-        # IP地址显示
-        ttk.Label(self.main_frame, text="IP地址:").grid(row=2, column=0, sticky=tk.W)
-        self.ip_label = ttk.Label(self.main_frame, text="获取中...")
+        ttk.Label(info_frame, text="IP地址:").grid(row=2, column=0, sticky=tk.W)
+        self.ip_label = ttk.Label(info_frame, text="获取中...")
         self.ip_label.grid(row=2, column=1, sticky=tk.W)
         
-        # 网络状态显示
-        ttk.Label(self.main_frame, text="网络状态:").grid(row=3, column=0, sticky=tk.W)
-        self.status_label = ttk.Label(self.main_frame, text="未登录", foreground="#666666")
-        self.status_label.grid(row=3, column=1, sticky=tk.W)
+        # 网络状态和流量监控
+        monitor_frame = ttk.LabelFrame(self.main_frame, text="网络监控", padding="5")
+        monitor_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
         
-        # 连接网络按钮
-        self.connect_button = ttk.Button(self.main_frame, text="连接网络", command=self.connect_wifi, style='Custom.TButton')
-        self.connect_button.grid(row=4, column=0, pady=5)
+        ttk.Label(monitor_frame, text="网络状态:").grid(row=0, column=0, sticky=tk.W)
+        self.status_label = ttk.Label(monitor_frame, text="未登录", foreground="#666666")
+        self.status_label.grid(row=0, column=1, sticky=tk.W)
         
-        # 登录按钮
-        self.login_button = ttk.Button(self.main_frame, text="登录", command=self.login, style='Custom.TButton')
-        self.login_button.grid(row=4, column=1, pady=5)
+        ttk.Label(monitor_frame, text="上传速度:").grid(row=1, column=0, sticky=tk.W)
+        self.upload_label = ttk.Label(monitor_frame, text="0 KB/s", foreground="#666666")
+        self.upload_label.grid(row=1, column=1, sticky=tk.W)
         
-        # 版本信息显示
-        version_frame = ttk.Frame(self.main_frame)
-        version_frame.grid(row=5, column=0, columnspan=2, pady=5)
+        ttk.Label(monitor_frame, text="下载速度:").grid(row=2, column=0, sticky=tk.W)
+        self.download_label = ttk.Label(monitor_frame, text="0 KB/s", foreground="#666666")
+        self.download_label.grid(row=2, column=1, sticky=tk.W)
         
-        self.version_label = ttk.Label(version_frame, text=f"当前版本: {self.current_version}", foreground="#666666")
+        # 添加总流量显示
+        ttk.Label(monitor_frame, text="总上传流量:").grid(row=3, column=0, sticky=tk.W)
+        self.total_upload_label = ttk.Label(monitor_frame, text="0 B", foreground="#666666")
+        self.total_upload_label.grid(row=3, column=1, sticky=tk.W)
+        
+        ttk.Label(monitor_frame, text="总下载流量:").grid(row=4, column=0, sticky=tk.W)
+        self.total_download_label = ttk.Label(monitor_frame, text="0 B", foreground="#666666")
+        self.total_download_label.grid(row=4, column=1, sticky=tk.W)
+        
+        # 添加在线用户统计
+        stats_frame = ttk.LabelFrame(self.main_frame, text="在线用户统计", padding="5")
+        stats_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
+        
+        ttk.Label(stats_frame, text="在线用户数:").grid(row=0, column=0, sticky=tk.W)
+        self.online_count_label = ttk.Label(stats_frame, text="0", foreground="#666666")
+        self.online_count_label.grid(row=0, column=1, sticky=tk.W)
+        
+        ttk.Label(stats_frame, text="总网络上传:").grid(row=1, column=0, sticky=tk.W)
+        self.total_network_upload_label = ttk.Label(stats_frame, text="0 B", foreground="#666666")
+        self.total_network_upload_label.grid(row=1, column=1, sticky=tk.W)
+        
+        ttk.Label(stats_frame, text="总网络下载:").grid(row=2, column=0, sticky=tk.W)
+        self.total_network_download_label = ttk.Label(stats_frame, text="0 B", foreground="#666666")
+        self.total_network_download_label.grid(row=2, column=1, sticky=tk.W)
+        
+        # 操作按钮区域
+        operation_frame = ttk.LabelFrame(self.main_frame, text="操作", padding="10")
+        operation_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
+        
+        # 网络连接按钮
+        network_frame = ttk.Frame(operation_frame)
+        network_frame.pack(fill=tk.X, pady=5)
+        
+        self.connect_button = ttk.Button(network_frame, text="连接网络", command=self.connect_wifi, style="Action.TButton")
+        self.connect_button.pack(side=tk.LEFT, padx=5, expand=True)
+        
+        self.login_button = ttk.Button(network_frame, text="登录", command=self.login, style="Action.TButton")
+        self.login_button.pack(side=tk.LEFT, padx=5, expand=True)
+        
+        # 版本控制区域
+        version_frame = ttk.LabelFrame(self.main_frame, text="版本信息", padding="10")
+        version_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
+        
+        version_info_frame = ttk.Frame(version_frame)
+        version_info_frame.pack(fill=tk.X, pady=5)
+        
+        self.version_label = ttk.Label(version_info_frame, text=f"当前版本: {self.current_version}", foreground="#666666")
         self.version_label.pack(side=tk.LEFT, padx=5)
         
-        self.latest_version_label = ttk.Label(version_frame, text="最新版本: 检查中...", foreground="#666666")
+        self.latest_version_label = ttk.Label(version_info_frame, text="最新版本: 检查中...", foreground="#666666")
         self.latest_version_label.pack(side=tk.LEFT, padx=5)
         
-        self.check_update_button = ttk.Button(version_frame, text="检查更新", command=self.check_update)
-        self.check_update_button.pack(side=tk.LEFT, padx=5)
+        update_button_frame = ttk.Frame(version_frame)
+        update_button_frame.pack(fill=tk.X, pady=5)
+        
+        self.check_update_button = ttk.Button(update_button_frame, text="检查更新", command=self.check_update, style="Action.TButton")
+        self.check_update_button.pack(expand=True, padx=5)
         
         # 网络提示信息
         self.network_hint = ttk.Label(self.main_frame, text="如果无法登陆，请连接到wlan-teacher网络", foreground="#666666")
-        self.network_hint.grid(row=6, column=0, columnspan=2, pady=5)
+        self.network_hint.grid(row=4, column=0, columnspan=2, pady=5)
         
         # 日志显示区域
         log_frame = ttk.LabelFrame(self.main_frame, text="运行日志", padding="5")
-        log_frame.grid(row=7, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+        log_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
         
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=15, width=50)
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=20, width=60)
         self.log_text.pack(expand=True, fill='both')
         self.log_text.configure(font=('Courier', 10))
         
         # 配置日志区域的网格权重
-        self.main_frame.grid_rowconfigure(7, weight=1)
+        self.main_frame.grid_rowconfigure(5, weight=1)
         
         # 初始检查更新
         threading.Thread(target=self.check_update, daemon=True).start()
@@ -95,6 +157,79 @@ class NetFucker:
         
         # 在界面显示后执行网络检测
         self.root.after(1000, lambda: threading.Thread(target=lambda: self.check_network_status(3), daemon=True).start())
+        
+        # 启动流量监控
+        self.start_traffic_monitor()
+        
+        # 启动WebSocket连接
+        self.connect_websocket()
+    
+    def connect_websocket(self):
+        def ws_connect():
+            try:
+                import websocket
+                self.ws = websocket.WebSocketApp(
+                    "ws://localhost:3000",
+                    on_message=self.on_ws_message,
+                    on_error=self.on_ws_error,
+                    on_close=self.on_ws_close,
+                    on_open=self.on_ws_open
+                )
+                self.ws.run_forever()
+            except Exception as e:
+                self.log(f"WebSocket连接错误: {str(e)}")
+                if not self.ws_reconnect_timer:
+                    self.ws_reconnect_timer = self.root.after(5000, self.connect_websocket)
+        
+        threading.Thread(target=ws_connect, daemon=True).start()
+    
+    def on_ws_open(self, ws):
+        self.ws_connected = True
+        self.log("已连接到统计服务器")
+        # 发送初始化数据
+        self.send_ws_message({
+            'type': 'init',
+            'mac_address': self.mac_label.cget("text"),
+            'ip_address': self.ip_label.cget("text")
+        })
+    
+    def on_ws_message(self, ws, message):
+        try:
+            data = json.loads(message)
+            self.online_users = data.get('users', [])
+            self.total_network_upload = data.get('total_upload', 0)
+            self.total_network_download = data.get('total_download', 0)
+            
+            # 更新界面显示
+            self.root.after(0, lambda: self.update_stats_display(data))
+        except Exception as e:
+            self.log(f"处理WebSocket消息错误: {str(e)}")
+    
+    def on_ws_error(self, ws, error):
+        self.log(f"WebSocket错误: {str(error)}")
+    
+    def on_ws_close(self, ws, close_status_code, close_msg):
+        self.ws_connected = False
+        self.log("与统计服务器的连接已断开")
+        if not self.ws_reconnect_timer:
+            self.ws_reconnect_timer = self.root.after(5000, self.connect_websocket)
+    
+    def send_ws_message(self, data):
+        if self.ws and self.ws_connected:
+            try:
+                self.ws.send(json.dumps(data))
+            except Exception as e:
+                self.log(f"发送WebSocket消息错误: {str(e)}")
+    
+    def update_stats_display(self, data):
+        # 更新在线用户数
+        self.online_count_label.config(text=str(data.get('online_count', 0)))
+        
+        # 更新总网络流量
+        total_upload = data.get('total_upload', 0)
+        total_download = data.get('total_download', 0)
+        self.total_network_upload_label.config(text=self.format_total_traffic(total_upload))
+        self.total_network_download_label.config(text=self.format_total_traffic(total_download))
     
     def log(self, message):
         self.log_text.insert(tk.END, f"{time.strftime('%Y-%m-%d %H:%M:%S')} {message}\n")
@@ -327,69 +462,150 @@ class NetFucker:
             # 恢复连接按钮状态
             self.connect_button.config(state='normal')
 
+    def start_traffic_monitor(self):
+        # 初始化流量统计变量
+        self.total_upload = 0
+        self.total_download = 0
+        self.last_report_time = time.time()
+        
+        # 启动流量监控线程
+        threading.Thread(target=self.monitor_traffic, daemon=True).start()
+
+    def monitor_traffic(self):
+        while True:
+            try:
+                # 获取当前网络接口的流量数据
+                if self.os_type == "Windows":
+                    # Windows系统使用wmic命令获取网络流量
+                    upload_cmd = subprocess.run(['wmic', 'path', 'Win32_PerfFormattedData_Tcpip_NetworkInterface', 'get', 'BytesSentPersec'], capture_output=True, text=True)
+                    download_cmd = subprocess.run(['wmic', 'path', 'Win32_PerfFormattedData_Tcpip_NetworkInterface', 'get', 'BytesReceivedPersec'], capture_output=True, text=True)
+                    
+                    # 解析命令输出
+                    current_upload = sum(int(line.strip()) for line in upload_cmd.stdout.split('\n')[1:] if line.strip().isdigit())
+                    current_download = sum(int(line.strip()) for line in download_cmd.stdout.split('\n')[1:] if line.strip().isdigit())
+                else:
+                    # macOS系统使用netstat命令获取网络流量
+                    cmd = subprocess.run(['netstat', '-I', 'en0'], capture_output=True, text=True)
+                    lines = cmd.stdout.split('\n')
+                    if len(lines) >= 2:
+                        stats = lines[1].split()
+                        if len(stats) >= 7:
+                            current_upload = int(stats[7])
+                            current_download = int(stats[6])
+                        else:
+                            current_upload = current_download = 0
+                    else:
+                        current_upload = current_download = 0
+                
+                # 计算速度（字节/秒）
+                current_time = time.time()
+                time_diff = current_time - self.last_report_time
+                
+                if time_diff > 0:
+                    upload_speed = (current_upload - self.total_upload) / time_diff
+                    download_speed = (current_download - self.total_download) / time_diff
+                    
+                    # 更新总流量
+                    self.total_upload = current_upload
+                    self.total_download = current_download
+                    self.last_report_time = current_time
+                    
+                    # 更新界面显示
+                    self.root.after(0, lambda: self.update_traffic_display(upload_speed, download_speed))
+                    
+                    # 发送流量数据到WebSocket服务器
+                    self.send_ws_message({
+                        'type': 'traffic_update',
+                        'mac_address': self.mac_label.cget("text"),
+                        'upload_speed': upload_speed,
+                        'download_speed': download_speed,
+                        'total_upload': self.total_upload,
+                        'total_download': self.total_download
+                    })
+                
+            except Exception as e:
+                self.log(f"流量监控错误: {str(e)}")
+            
+            # 每秒更新一次
+            time.sleep(1)
     
-    def download_update(self, version):
-        try:
-            # 确定系统类型和下载文件名
+    def update_traffic_display(self, upload_speed, download_speed):
+        # 格式化速度显示
+        def format_speed(speed):
+            if speed < 1024:
+                return f"{speed:.1f} B/s"
+            elif speed < 1024 * 1024:
+                return f"{speed/1024:.1f} KB/s"
+            else:
+                return f"{speed/(1024*1024):.1f} MB/s"
+        
+        # 更新界面标签
+        self.upload_label.config(text=format_speed(upload_speed))
+        self.download_label.config(text=format_speed(download_speed))
+        
+        # 更新总流量显示
+        self.total_upload_label.config(text=self.format_total_traffic(self.total_upload))
+        self.total_download_label.config(text=self.format_total_traffic(self.total_download))
+
+    
+                # 确定系统类型和下载文件名
+        system_suffix = "Darwin" if self.os_type == "Darwin" else "Windows"
+        filename = f"NetFucker_{system_suffix}.zip"
+        download_path = os.path.join(os.path.expanduser("~"), "Downloads", filename)
+                
+                # 默认下载源列表
+        urls = [
+                    f"https://github.com/Michaelwucoc/SHBS-NetFucker/releases/download/{version}/{filename}",
+                    f"https://mirror.ghproxy.com/https://github.com/Michaelwucoc/SHBS-NetFucker/releases/download/{version}/{filename}"
+                ]
+            
+
+    
+    def handle_download_complete(self, message, download_path):
+        if messagebox.askyesno("安装更新", message):
+            # 打开文件所在目录
+            if self.os_type == "Darwin":
+                subprocess.run(['open', '-R', download_path])
+            else:
+                subprocess.run(['explorer', '/select,', download_path])
+    
+    def show_update_options(self, version):
+        # 创建更新选项窗口
+        update_window = tk.Toplevel(self.root)
+        update_window.title("更新选项")
+        update_window.geometry("200x300")
+        update_window.transient(self.root)
+        update_window.grab_set()
+        
+        # 配置窗口
+        frame = ttk.Frame(update_window, padding="10")
+        frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        update_window.grid_columnconfigure(0, weight=1)
+        
+        # 更新信息
+        ttk.Label(frame, text=f"发现新版本: {version}", font=("Helvetica", 12, "bold")).grid(row=0, column=0, pady=10)
+        ttk.Label(frame, text="请选择下载方式：").grid(row=1, column=0, pady=5)
+        
+        def open_mirror():
             system_suffix = "Darwin" if self.os_type == "Darwin" else "Windows"
             filename = f"NetFucker_{system_suffix}.zip"
-            
-            # 准备下载链接（主源和镜像源）
-            urls = [
-                f"https://github.com/Michaelwucoc/SHBS-NetFucker/releases/download/{version}/{filename}",
-                f"https://github.shbs.club/https://github.com/Michaelwucoc/SHBS-NetFucker/releases/download/{version}/{filename}"
-            ]
-            
-            # 创建临时下载目录
-            import tempfile
-            import os
-            temp_dir = tempfile.gettempdir()
-            download_path = os.path.join(temp_dir, filename)
-            
-            # 尝试从不同源下载
-            for url in urls:
-                try:
-                    self.log(f"正在从 {url} 下载更新...")
-                    response = requests.get(url, stream=True, timeout=30)
-                    response.raise_for_status()
-                    
-                    # 获取文件大小
-                    total_size = int(response.headers.get('content-length', 0))
-                    block_size = 1024
-                    downloaded = 0
-                    
-                    # 下载文件
-                    with open(download_path, 'wb') as f:
-                        for data in response.iter_content(block_size):
-                            downloaded += len(data)
-                            f.write(data)
-                            # 计算下载进度
-                            progress = (downloaded / total_size) * 100 if total_size > 0 else 0
-                            self.log(f"下载进度: {progress:.1f}%")
-                    
-                    self.log("下载完成！")
-                    
-                    # 提示用户安装更新
-                    message = f"更新已下载完成\n\n文件保存在: {download_path}\n\n是否立即安装？"
-                    if messagebox.askyesno("安装更新", message):
-                        # 打开文件所在目录
-                        if self.os_type == "Darwin":
-                            subprocess.run(['open', '-R', download_path])
-                        else:
-                            subprocess.run(['explorer', '/select,', download_path])
-                    
-                    return True
-                    
-                except Exception as e:
-                    self.log(f"从 {url} 下载失败: {str(e)}")
-                    continue
-            
-            raise Exception("所有下载源均失败")
-            
-        except Exception as e:
-            self.log(f"下载更新失败: {str(e)}")
-            return False
-    
+            url = f"https://github.shbs.club/https://github.com/Michaelwucoc/SHBS-NetFucker/releases/download/{version}/{filename}"
+            webbrowser.open(url)
+            update_window.destroy()
+        
+        def open_official():
+            system_suffix = "Darwin" if self.os_type == "Darwin" else "Windows"
+            filename = f"NetFucker_{system_suffix}.zip"
+            url = f"https://github.com/Michaelwucoc/SHBS-NetFucker/releases/download/{version}/{filename}"
+            webbrowser.open(url)
+            update_window.destroy()
+        
+        ttk.Button(frame, text="使用镜像站下载", command=open_mirror).grid(row=2, column=0, pady=10, padx=20, sticky=tk.EW)
+        ttk.Button(frame, text="使用官方源下载", command=open_official).grid(row=3, column=0, pady=10, padx=20, sticky=tk.EW)
+        
+        # 取消按钮
+        ttk.Button(frame, text="取消", command=update_window.destroy).grid(row=4, column=0, pady=10, padx=20, sticky=tk.EW)
+
     def check_update(self):
         def update_gui(state, text):
             self.check_update_button.config(state=state)
@@ -398,11 +614,13 @@ class NetFucker:
         def handle_update_result(success, version=None, error=None):
             if success:
                 if version != self.current_version:
-                    message = f"发现新版本 {version}\n\n是否自动下载更新？"
-                    if messagebox.askyesno("更新提示", message):
-                        self.download_update(version)
-                    else:
-                        webbrowser.open(f"https://github.com/Michaelwucoc/SHBS-NetFucker/releases/tag/{version}")
+                    # 检查是否已经存在更新窗口
+                    for widget in self.root.winfo_children():
+                        if isinstance(widget, tk.Toplevel) and widget.wm_title() == "更新选项":
+                            widget.lift()
+                            return
+                    # 如果不存在更新窗口，则创建一个
+                    self.show_update_options(version)
                 else:
                     self.log("当前已是最新版本")
             else:
@@ -416,10 +634,19 @@ class NetFucker:
             self.root.after(0, lambda: update_gui('disabled', "最新版本: 检查中..."))
             
             # 获取GitHub最新release版本
-            response = requests.get(
-                "https://api.github.com/repos/Michaelwucoc/SHBS-NetFucker/releases/latest",
-                timeout=15
-            )
+            api_url = "https://api.github.com/repos/Michaelwucoc/SHBS-NetFucker/releases/latest"
+            self.log(f"正在从{api_url}获取最新版本信息...")
+            response = requests.get(api_url, timeout=15)
+            
+            if response.status_code == 200:
+                release_info = response.json()
+                latest_version = release_info['tag_name']
+                self.log(f"获取到最新版本: {latest_version}")
+                self.root.after(0, lambda: handle_update_result(True, latest_version))
+            else:
+                error_msg = f"获取版本信息失败: HTTP {response.status_code}"
+                self.log(error_msg)
+                self.root.after(0, lambda: handle_update_result(False, error=error_msg))
             
             if response.status_code == 200:
                 release_info = response.json()
@@ -436,6 +663,146 @@ class NetFucker:
     
     def run(self):
         self.root.mainloop()
+
+    def format_speed(self, bytes_per_sec):
+        if bytes_per_sec >= 1024 * 1024:
+            return f"{bytes_per_sec / (1024 * 1024):.2f} MB/s"
+        elif bytes_per_sec >= 1024:
+            return f"{bytes_per_sec / 1024:.2f} KB/s"
+        else:
+            return f"{bytes_per_sec:.2f} B/s"
+
+    def format_total_traffic(self, bytes_total):
+        if bytes_total >= 1024 * 1024 * 1024:
+            return f"{bytes_total / (1024 * 1024 * 1024):.2f} GB"
+        elif bytes_total >= 1024 * 1024:
+            return f"{bytes_total / (1024 * 1024):.2f} MB"
+        elif bytes_total >= 1024:
+            return f"{bytes_total / 1024:.2f} KB"
+        else:
+            return f"{bytes_total:.2f} B"
+
+    def report_traffic(self):
+        try:
+            current_time = time.time()
+            # 每5分钟上报一次数据
+            if current_time - self.last_report_time >= 300:
+                mac = self.mac_label.cget("text")
+                ip = self.ip_label.cget("text")
+                
+                data = {
+                    'mac_address': mac,
+                    'ip_address': ip,
+                    'total_upload': self.total_upload,
+                    'total_download': self.total_download
+                }
+                
+                try:
+                    response = requests.post(
+                        'http://localhost:3000/report',
+                        json=data,
+                        timeout=5
+                    )
+                    
+                    if response.status_code == 200:
+                        self.log("流量数据上报成功")
+                    else:
+                        self.log(f"流量数据上报失败: HTTP {response.status_code}")
+                except:
+                    self.log("流量数据上报失败: 无法连接到服务器")
+                
+                self.last_report_time = current_time
+        except Exception as e:
+            self.log(f"流量数据上报错误: {str(e)}")
+
+    def monitor_traffic(self):
+        last_bytes_sent = 0
+        last_bytes_recv = 0
+        while True:
+                try:
+                    if self.os_type == "Windows":
+                        # Windows系统使用性能计数器获取网络流量
+                        result = subprocess.run(
+                            ['powershell', '-Command', 
+                             "Get-Counter '\\Network Interface(*)\\Bytes Sent/sec','\\Network Interface(*)\\Bytes Received/sec'"],
+                            capture_output=True, text=True)
+                        if result.returncode == 0:
+                            lines = result.stdout.split('\n')
+                            bytes_sent = 0
+                            bytes_recv = 0
+                            for line in lines:
+                                if 'Bytes Sent' in line:
+                                    try:
+                                        bytes_sent = float(line.split(':')[-1].strip())
+                                    except:
+                                        pass
+                                elif 'Bytes Received' in line:
+                                    try:
+                                        bytes_recv = float(line.split(':')[-1].strip())
+                                    except:
+                                        pass
+                    else:
+                        # macOS系统使用netstat命令获取网络流量
+                        result = subprocess.run(
+                            ['netstat', '-I', 'en0', '-b'],
+                            capture_output=True, text=True)
+                        if result.returncode == 0:
+                            lines = result.stdout.split('\n')
+                            if len(lines) > 1:
+                                try:
+                                    fields = lines[1].split()
+                                    bytes_recv = int(fields[6])
+                                    bytes_sent = int(fields[9])
+                                except:
+                                    bytes_recv = 0
+                                    bytes_sent = 0
+                        else:
+                            bytes_recv = 0
+                            bytes_sent = 0
+                    
+                    if last_bytes_sent > 0 and last_bytes_recv > 0:
+                        upload_speed = bytes_sent - last_bytes_sent
+                        download_speed = bytes_recv - last_bytes_recv
+                        
+                        # 确保速度不为负数
+                        upload_speed = max(0, upload_speed)
+                        download_speed = max(0, download_speed)
+                        
+                        # 更新总流量
+                        self.total_upload += upload_speed
+                        self.total_download += download_speed
+                        
+                        # 更新界面显示
+                        self.root.after(0, lambda: self.upload_label.config(
+                            text=self.format_speed(upload_speed)))
+                        self.root.after(0, lambda: self.download_label.config(
+                            text=self.format_speed(download_speed)))
+                        self.root.after(0, lambda: self.total_upload_label.config(
+                            text=self.format_total_traffic(self.total_upload)))
+                        self.root.after(0, lambda: self.total_download_label.config(
+                            text=self.format_total_traffic(self.total_download)))
+                        
+                        # 上报流量数据
+                        self.report_traffic()
+                    
+                    last_bytes_sent = bytes_sent
+                    last_bytes_recv = bytes_recv
+                    
+                except Exception as e:
+                    self.log(f"获取网络流量数据失败: {str(e)}")
+                    # 重置计数器
+                    last_bytes_sent = 0
+                    last_bytes_recv = 0
+                
+                time.sleep(1)
+        
+        # 初始化流量统计变量
+        self.total_upload = 0
+        self.total_download = 0
+        self.last_report_time = time.time()
+        
+        # 启动流量监控线程
+        threading.Thread(target=self.monitor_traffic, daemon=True).start()
 
 if __name__ == "__main__":
     app = NetFucker()
