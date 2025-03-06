@@ -1,3 +1,0 @@
-([('NetFucker',
-   '/Users/wujian/Documents/SHBS NetFucker/dist/NetFucker',
-   'EXECUTABLE')],)

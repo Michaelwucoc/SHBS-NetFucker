@@ -1,0 +1,60 @@
+name: Build Application
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        pip install -r requirements.txt
+    
+    - name: Build with PyInstaller
+      run: |
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          pyinstaller --clean --name=NetFucker --noconsole --onefile --add-data="requirements.txt;." --collect-all=tkinter --collect-all=requests --collect-all=urllib3 --runtime-tmpdir=. --windowed netfucker.py
+          if [ -f "icon.ico" ]; then
+            pyinstaller --clean --name=NetFucker --noconsole --onefile --add-data="requirements.txt;." --collect-all=tkinter --collect-all=requests --collect-all=urllib3 --runtime-tmpdir=. --windowed --icon=icon.ico netfucker.py
+          fi
+        else
+          pyinstaller --clean --name=NetFucker --noconsole --onefile --add-data="requirements.txt:." --collect-all=tkinter --collect-all=requests --collect-all=urllib3 --runtime-tmpdir=. --windowed --target-arch=universal2 netfucker.py
+          if [ -f "icon.icns" ]; then
+            pyinstaller --clean --name=NetFucker --noconsole --onefile --add-data="requirements.txt:." --collect-all=tkinter --collect-all=requests --collect-all=urllib3 --runtime-tmpdir=. --windowed --target-arch=universal2 --icon=icon.icns netfucker.py
+          fi
+        fi
+      shell: bash
+    
+    - name: Create Release Archive
+      run: |
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          cd dist && zip -r ../NetFucker_Windows.zip NetFucker.exe
+        else
+          cd dist && zip -r ../NetFucker_Darwin.zip NetFucker.app
+        fi
+      shell: bash
+    
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: NetFucker-${{ matrix.os }}
+        path: NetFucker_*.zip
