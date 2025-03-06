@@ -58,7 +58,7 @@ class NetFucker:
         self.login_button.grid(row=4, column=1, pady=5)
         
         # 网络提示信息
-        self.network_hint = ttk.Label(self.main_frame, text="请先连接到wlan-teacher网络", foreground="#666666")
+        self.network_hint = ttk.Label(self.main_frame, text="如果无法登陆，请连接到wlan-teacher网络", foreground="#666666")
         self.network_hint.grid(row=5, column=0, columnspan=2, pady=5)
         
         # 日志显示区域
@@ -118,38 +118,64 @@ class NetFucker:
             self.status_label.config(text="未连接", foreground="#dc3545")
             return False
     
-    def init_system_info(self):
+    def init_system_info(self, max_retries=3, retry_interval=1):
         # 获取MAC地址
-        if self.os_type == "Windows":
+        mac_success = False
+        for retry in range(max_retries):
             try:
-                result = subprocess.run(['getmac', '/fo', 'csv', '/nh'], 
-                                      capture_output=True, 
-                                      text=True)
-                if result.returncode == 0:
-                    mac = result.stdout.split(',')[0].strip('"')
+                if self.os_type == "Windows":
+                    try:
+                        result = subprocess.run(['getmac', '/fo', 'csv', '/nh'], 
+                                              capture_output=True, 
+                                              text=True)
+                        if result.returncode == 0:
+                            mac = result.stdout.split(',')[0].strip('"')
+                            self.mac_label.config(text=mac.upper())
+                            mac_success = True
+                            break
+                        else:
+                            raise Exception("获取MAC地址失败")
+                    except:
+                        mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff)
+                                        for elements in range(0,8*6,8)][::-1])
+                        self.mac_label.config(text=mac.upper())
+                        mac_success = True
+                        break
+                else:
+                    mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff)
+                                    for elements in range(0,8*6,8)][::-1])
                     self.mac_label.config(text=mac.upper())
+                    mac_success = True
+                    break
+            except Exception as e:
+                if retry < max_retries - 1:
+                    self.log(f"获取MAC地址失败 (尝试 {retry + 1}/{max_retries}): {str(e)}")
+                    time.sleep(retry_interval)
                 else:
                     self.mac_label.config(text="无法获取MAC地址")
-            except:
-                mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff)
-                                for elements in range(0,8*6,8)][::-1])
-                self.mac_label.config(text=mac.upper())
-        else:
-            mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff)
-                            for elements in range(0,8*6,8)][::-1])
-            self.mac_label.config(text=mac.upper())
+                    self.log(f"获取MAC地址失败，已达到最大重试次数: {str(e)}")
         
         # 获取IP地址
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            ip = s.getsockname()[0]
-            s.close()
-            self.ip_label.config(text=ip)
-            self.log(f"获取IP地址: {ip}")
-        except:
-            self.ip_label.config(text="无法获取IP地址")
-            self.log("无法获取IP地址")
+        ip_success = False
+        for retry in range(max_retries):
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect(("8.8.8.8", 80))
+                ip = s.getsockname()[0]
+                s.close()
+                self.ip_label.config(text=ip)
+                self.log(f"获取IP地址: {ip}")
+                ip_success = True
+                break
+            except Exception as e:
+                if retry < max_retries - 1:
+                    self.log(f"获取IP地址失败 (尝试 {retry + 1}/{max_retries}): {str(e)}")
+                    time.sleep(retry_interval)
+                else:
+                    self.ip_label.config(text="无法获取IP地址")
+                    self.log(f"获取IP地址失败，已达到最大重试次数: {str(e)}")
+        
+        return mac_success and ip_success
     
     def login(self):
         try:
