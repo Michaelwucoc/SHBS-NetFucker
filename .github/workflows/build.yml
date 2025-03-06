@@ -31,7 +31,6 @@ jobs:
           brew install python-tk@3.13
           brew link --overwrite python-tk@3.13
         elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-          choco install python3-tk
           python -m pip install pywin32
         fi
         pip install pyinstaller
