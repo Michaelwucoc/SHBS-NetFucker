@@ -339,7 +339,7 @@ class NetFucker:
             
             # 获取GitHub最新release版本
             response = requests.get(
-                "https://api.github.com/repos/SHBSBS/NetFucker/releases/latest",
+                "https://api.github.com/repos/Michaelwucoc/SHBS-NetFucker/releases/latest",
                 timeout=10
             )
             
