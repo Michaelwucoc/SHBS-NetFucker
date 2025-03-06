@@ -55,7 +55,8 @@ jobs:
     - name: Create Release Archive
       run: |
         if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          cd dist && zip -r ../NetFucker_Windows.zip NetFucker.exe
+          cd dist
+          powershell -Command "Compress-Archive -Path NetFucker.exe -DestinationPath ../NetFucker_Windows.zip -Force"
         else
           cd dist && zip -r ../NetFucker_Darwin.zip NetFucker.app
         fi
