@@ -1,6 +1,6 @@
 import platform
 import tkinter as tk
-from tkinter import ttk, scrolledtext
+from tkinter import ttk, scrolledtext, messagebox
 import uuid
 import socket
 import requests
@@ -9,11 +9,13 @@ import json
 import subprocess
 import threading
 import time
+import webbrowser
 
 class NetFucker:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("SHBS NetFucker V1.0")
+        self.current_version = "v20250306"
+        self.root.title(f"SHBS NetFucker {self.current_version}")
         self.root.geometry("500x600")
         self.root.configure(bg='#f0f0f0')
         
@@ -57,20 +59,36 @@ class NetFucker:
         self.login_button = ttk.Button(self.main_frame, text="登录", command=self.login, style='Custom.TButton')
         self.login_button.grid(row=4, column=1, pady=5)
         
+        # 版本信息显示
+        version_frame = ttk.Frame(self.main_frame)
+        version_frame.grid(row=5, column=0, columnspan=2, pady=5)
+        
+        self.version_label = ttk.Label(version_frame, text=f"当前版本: {self.current_version}", foreground="#666666")
+        self.version_label.pack(side=tk.LEFT, padx=5)
+        
+        self.latest_version_label = ttk.Label(version_frame, text="最新版本: 检查中...", foreground="#666666")
+        self.latest_version_label.pack(side=tk.LEFT, padx=5)
+        
+        self.check_update_button = ttk.Button(version_frame, text="检查更新", command=self.check_update)
+        self.check_update_button.pack(side=tk.LEFT, padx=5)
+        
         # 网络提示信息
         self.network_hint = ttk.Label(self.main_frame, text="如果无法登陆，请连接到wlan-teacher网络", foreground="#666666")
-        self.network_hint.grid(row=5, column=0, columnspan=2, pady=5)
+        self.network_hint.grid(row=6, column=0, columnspan=2, pady=5)
         
         # 日志显示区域
         log_frame = ttk.LabelFrame(self.main_frame, text="运行日志", padding="5")
-        log_frame.grid(row=6, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+        log_frame.grid(row=7, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
         
         self.log_text = scrolledtext.ScrolledText(log_frame, height=15, width=50)
         self.log_text.pack(expand=True, fill='both')
         self.log_text.configure(font=('Courier', 10))
         
         # 配置日志区域的网格权重
-        self.main_frame.grid_rowconfigure(6, weight=1)
+        self.main_frame.grid_rowconfigure(7, weight=1)
+        
+        # 初始检查更新
+        threading.Thread(target=self.check_update, daemon=True).start()
         
         # 初始化系统信息
         self.init_system_info()
@@ -246,8 +264,9 @@ class NetFucker:
                     self.log("Thank you for using Milk NetFucker.")
                     self.log("Official Website: net.shbs.club")
                     self.log("==================================")
-                    # 登录成功后检测网络状态    
+                    # 登录成功后检测网络状态和更新
                     threading.Thread(target=lambda: self.check_network_status(3), daemon=True).start()
+                    threading.Thread(target=self.check_update, daemon=True).start()
                 else:
                     raise Exception(f"登录失败: HTTP {response.status_code}")
                     
@@ -312,6 +331,40 @@ class NetFucker:
             # 恢复连接按钮状态
             self.connect_button.config(state='normal')
 
+    
+    def check_update(self):
+        try:
+            self.check_update_button.config(state='disabled')
+            self.latest_version_label.config(text="最新版本: 检查中...")
+            
+            # 获取GitHub最新release版本
+            response = requests.get(
+                "https://api.github.com/repos/SHBSBS/NetFucker/releases/latest",
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                release_info = response.json()
+                latest_version = release_info['tag_name']
+                self.latest_version_label.config(text=f"最新版本: {latest_version}")
+                
+                # 比较版本号
+                if latest_version != self.current_version:
+                    download_url = release_info['html_url']
+                    message = f"发现新版本 {latest_version}\n\n是否前往下载页面？"
+                    if messagebox.askyesno("更新提示", message):
+                        webbrowser.open(download_url)
+                else:
+                    self.log("当前已是最新版本")
+            else:
+                self.latest_version_label.config(text="最新版本: 检查失败")
+                self.log(f"检查更新失败: HTTP {response.status_code}")
+                
+        except Exception as e:
+            self.latest_version_label.config(text="最新版本: 检查失败")
+            self.log(f"检查更新错误: {str(e)}")
+        finally:
+            self.check_update_button.config(state='normal')
     
     def run(self):
         self.root.mainloop()
