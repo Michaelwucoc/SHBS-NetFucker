@@ -58,6 +58,10 @@ def build_app():
             '--name=NetFucker',
             '--noconsole',
             '--onefile',
+            '--add-data=requirements.txt:.',
+            '--collect-all=tkinter',
+            '--collect-all=requests',
+            '--collect-all=urllib3',
             'netfucker.py'
         ]
         
