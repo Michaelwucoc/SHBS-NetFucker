@@ -1,3 +1,4 @@
+import platform
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 import uuid
@@ -16,6 +17,9 @@ class NetFucker:
         self.root.geometry("500x600")
         self.root.configure(bg='#f0f0f0')
         
+        # 获取操作系统信息
+        self.os_type = platform.system()
+        
         # 创建主框架
         self.main_frame = ttk.Frame(self.root, padding="10")
         self.main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -25,43 +29,48 @@ class NetFucker:
         self.root.grid_columnconfigure(0, weight=1)
         self.main_frame.grid_columnconfigure(1, weight=1)
         
+        # 系统信息显示
+        ttk.Label(self.main_frame, text="操作系统:").grid(row=0, column=0, sticky=tk.W)
+        self.os_label = ttk.Label(self.main_frame, text=f"{self.os_type}")
+        self.os_label.grid(row=0, column=1, sticky=tk.W)
+        
         # MAC地址显示
-        ttk.Label(self.main_frame, text="MAC地址:").grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(self.main_frame, text="MAC地址:").grid(row=1, column=0, sticky=tk.W)
         self.mac_label = ttk.Label(self.main_frame, text="获取中...")
-        self.mac_label.grid(row=0, column=1, sticky=tk.W)
+        self.mac_label.grid(row=1, column=1, sticky=tk.W)
         
         # IP地址显示
-        ttk.Label(self.main_frame, text="IP地址:").grid(row=1, column=0, sticky=tk.W)
+        ttk.Label(self.main_frame, text="IP地址:").grid(row=2, column=0, sticky=tk.W)
         self.ip_label = ttk.Label(self.main_frame, text="获取中...")
-        self.ip_label.grid(row=1, column=1, sticky=tk.W)
+        self.ip_label.grid(row=2, column=1, sticky=tk.W)
         
         # 网络状态显示
-        ttk.Label(self.main_frame, text="网络状态:").grid(row=2, column=0, sticky=tk.W)
+        ttk.Label(self.main_frame, text="网络状态:").grid(row=3, column=0, sticky=tk.W)
         self.status_label = ttk.Label(self.main_frame, text="未登录", foreground="#666666")
-        self.status_label.grid(row=2, column=1, sticky=tk.W)
+        self.status_label.grid(row=3, column=1, sticky=tk.W)
         
         # 连接网络按钮
         self.connect_button = ttk.Button(self.main_frame, text="连接网络", command=self.connect_wifi, style='Custom.TButton')
-        self.connect_button.grid(row=3, column=0, pady=5)
+        self.connect_button.grid(row=4, column=0, pady=5)
         
         # 登录按钮
         self.login_button = ttk.Button(self.main_frame, text="登录", command=self.login, style='Custom.TButton')
-        self.login_button.grid(row=3, column=1, pady=5)
+        self.login_button.grid(row=4, column=1, pady=5)
         
         # 网络提示信息
         self.network_hint = ttk.Label(self.main_frame, text="请先连接到wlan-teacher网络", foreground="#666666")
-        self.network_hint.grid(row=4, column=0, columnspan=2, pady=5)
+        self.network_hint.grid(row=5, column=0, columnspan=2, pady=5)
         
         # 日志显示区域
         log_frame = ttk.LabelFrame(self.main_frame, text="运行日志", padding="5")
-        log_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+        log_frame.grid(row=6, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
         
         self.log_text = scrolledtext.ScrolledText(log_frame, height=15, width=50)
         self.log_text.pack(expand=True, fill='both')
         self.log_text.configure(font=('Courier', 10))
         
         # 配置日志区域的网格权重
-        self.main_frame.grid_rowconfigure(4, weight=1)
+        self.main_frame.grid_rowconfigure(6, weight=1)
         
         # 初始化系统信息
         self.init_system_info()
@@ -76,11 +85,13 @@ class NetFucker:
     def check_network_status(self, times=1):
         success_count = 0
         total_latency = 0
+        test_host = "baidu.com" if self.os_type == "Windows" else "baidu.com"
+        ping_cmd = ['ping', '-n', '1', test_host] if self.os_type == "Windows" else ['ping', '-c', '1', test_host]
+        
         for i in range(times):
             try:
-                # 使用ping命令检测网络连接
                 start_time = time.time()
-                result = subprocess.run(['ping', '-c', '1', 'baidu.com'], 
+                result = subprocess.run(ping_cmd, 
                                       stdout=subprocess.PIPE, 
                                       stderr=subprocess.PIPE,
                                       timeout=1)
@@ -109,9 +120,24 @@ class NetFucker:
     
     def init_system_info(self):
         # 获取MAC地址
-        mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff)
-                        for elements in range(0,8*6,8)][::-1])
-        self.mac_label.config(text=mac.upper())
+        if self.os_type == "Windows":
+            try:
+                result = subprocess.run(['getmac', '/fo', 'csv', '/nh'], 
+                                      capture_output=True, 
+                                      text=True)
+                if result.returncode == 0:
+                    mac = result.stdout.split(',')[0].strip('"')
+                    self.mac_label.config(text=mac.upper())
+                else:
+                    self.mac_label.config(text="无法获取MAC地址")
+            except:
+                mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff)
+                                for elements in range(0,8*6,8)][::-1])
+                self.mac_label.config(text=mac.upper())
+        else:
+            mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff)
+                            for elements in range(0,8*6,8)][::-1])
+            self.mac_label.config(text=mac.upper())
         
         # 获取IP地址
         try:
@@ -190,7 +216,11 @@ class NetFucker:
                 if response.status_code == 200:
                     self.status_label.config(text="登录成功", foreground="#28a745")
                     self.log("登录成功")
-                    # 登录成功后检测网络状态
+                    self.log("==================================")
+                    self.log("Thank you for using Milk NetFucker.")
+                    self.log("Official Website: net.shbs.club")
+                    self.log("==================================")
+                    # 登录成功后检测网络状态    
                     threading.Thread(target=lambda: self.check_network_status(3), daemon=True).start()
                 else:
                     raise Exception(f"登录失败: HTTP {response.status_code}")
@@ -219,13 +249,22 @@ class NetFucker:
             self.status_label.config(text="连接中...", foreground="#666666")
             self.log("正在尝试连接wlan-teacher网络...")
             
-            # 使用networksetup命令连接到wlan-teacher网络
-            result = subprocess.run(
-                ['networksetup', '-setairportnetwork', 'en0', 'wlan-teacher'],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
+            if self.os_type == "Windows":
+                # Windows系统使用netsh命令连接WiFi
+                result = subprocess.run(
+                    ['netsh', 'wlan', 'connect', 'name=wlan-teacher'],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+            else:
+                # macOS系统使用networksetup命令连接WiFi
+                result = subprocess.run(
+                    ['networksetup', '-setairportnetwork', 'en0', 'wlan-teacher'],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
             
             if result.returncode == 0:
                 self.log("成功连接到wlan-teacher网络")
