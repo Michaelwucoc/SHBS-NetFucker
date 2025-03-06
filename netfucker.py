@@ -9,17 +9,10 @@ import subprocess
 import threading
 import time
 
-# GitHub相关配置
-GITHUB_VERSION = "1.0.0"
-GITHUB_COMMIT = "abcd123"  # 7位Git commit hash
-GITHUB_REPO = "Michaelwucoc/SHBS-NetFucker"
-GITHUB_API_URL = "https://api.github.com/repos/" + GITHUB_REPO
-GITHUB_MIRROR_API = "https://hub.fastgit.xyz/api/v3/repos/" + GITHUB_REPO
-
 class NetFucker:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title(f"SHBS NetFucker V{GITHUB_VERSION}")
+        self.root.title("SHBS NetFucker V1.0")
         self.root.geometry("500x600")
         self.root.configure(bg='#f0f0f0')
         
@@ -32,92 +25,44 @@ class NetFucker:
         self.root.grid_columnconfigure(0, weight=1)
         self.main_frame.grid_columnconfigure(1, weight=1)
         
-        # 版本信息显示
-        version_frame = ttk.Frame(self.main_frame)
-        version_frame.grid(row=0, column=0, columnspan=2, sticky=tk.W)
-        ttk.Label(version_frame, text=f"版本: {GITHUB_VERSION} ({GITHUB_COMMIT})").pack(side=tk.LEFT)
-        ttk.Button(version_frame, text="检查更新", command=self.check_update).pack(side=tk.LEFT, padx=5)
-        
         # MAC地址显示
-        ttk.Label(self.main_frame, text="MAC地址:").grid(row=1, column=0, sticky=tk.W)
+        ttk.Label(self.main_frame, text="MAC地址:").grid(row=0, column=0, sticky=tk.W)
         self.mac_label = ttk.Label(self.main_frame, text="获取中...")
-        self.mac_label.grid(row=1, column=1, sticky=tk.W)
+        self.mac_label.grid(row=0, column=1, sticky=tk.W)
         
         # IP地址显示
-        ttk.Label(self.main_frame, text="IP地址:").grid(row=2, column=0, sticky=tk.W)
+        ttk.Label(self.main_frame, text="IP地址:").grid(row=1, column=0, sticky=tk.W)
         self.ip_label = ttk.Label(self.main_frame, text="获取中...")
-        self.ip_label.grid(row=2, column=1, sticky=tk.W)
+        self.ip_label.grid(row=1, column=1, sticky=tk.W)
         
         # 网络状态显示
-        ttk.Label(self.main_frame, text="网络状态:").grid(row=3, column=0, sticky=tk.W)
+        ttk.Label(self.main_frame, text="网络状态:").grid(row=2, column=0, sticky=tk.W)
         self.status_label = ttk.Label(self.main_frame, text="未登录", foreground="#666666")
-        self.status_label.grid(row=3, column=1, sticky=tk.W)
+        self.status_label.grid(row=2, column=1, sticky=tk.W)
         
         # 登录按钮
         style = ttk.Style()
         style.configure('Custom.TButton', padding=5)
         self.login_button = ttk.Button(self.main_frame, text="登录", command=self.login, style='Custom.TButton')
-        self.login_button.grid(row=4, column=0, columnspan=2, pady=10)
+        self.login_button.grid(row=3, column=0, columnspan=2, pady=10)
         
         # 日志显示区域
         log_frame = ttk.LabelFrame(self.main_frame, text="运行日志", padding="5")
-        log_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+        log_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
         
         self.log_text = scrolledtext.ScrolledText(log_frame, height=15, width=50)
         self.log_text.pack(expand=True, fill='both')
         self.log_text.configure(font=('Courier', 10))
         
         # 配置日志区域的网格权重
-        self.main_frame.grid_rowconfigure(5, weight=1)
+        self.main_frame.grid_rowconfigure(4, weight=1)
         
         # 初始化系统信息
         self.init_system_info()
         
         # 执行初始网络检测
         self.check_network_status(3)
-        
-        # 启动时检查更新
-        threading.Thread(target=self.check_update, daemon=True).start()
-
-    def check_update(self):
-        try:
-            # 尝试使用镜像API
-            apis = [GITHUB_MIRROR_API, GITHUB_API_URL]
-            latest_version = None
-            download_url = None
-            error_msg = None
-
-            for api in apis:
-                try:
-                    self.log(f"正在从 {api} 检查更新...")
-                    response = requests.get(f"{api}/releases/latest", timeout=5)
-                    if response.status_code == 200:
-                        data = response.json()
-                        latest_version = data['tag_name'].lstrip('v')
-                        download_url = data['html_url']
-                        break
-                except Exception as e:
-                    error_msg = str(e)
-                    continue
-
-            if latest_version is None:
-                raise Exception(f"无法获取最新版本信息: {error_msg}")
-
-            self.log(f"当前版本: {GITHUB_VERSION}")
-            self.log(f"最新版本: {latest_version}")
-
-            if latest_version > GITHUB_VERSION:
-                message = f"发现新版本 {latest_version}\n\n是否前往下载页面？"
-                if messagebox.askyesno("更新提示", message):
-                    import webbrowser
-                    webbrowser.open(download_url)
-            else:
-                messagebox.showinfo("更新提示", "当前已是最新版本！")
-
-        except Exception as e:
-            self.log(f"检查更新失败: {str(e)}")
-            messagebox.showerror("更新检查失败", f"无法检查更新：{str(e)}")
-
+    
     def log(self, message):
         self.log_text.insert(tk.END, f"{time.strftime('%Y-%m-%d %H:%M:%S')} {message}\n")
         self.log_text.see(tk.END)
