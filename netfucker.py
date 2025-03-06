@@ -37,7 +37,7 @@ class NetFucker:
         
         # 网络状态显示
         ttk.Label(self.main_frame, text="网络状态:").grid(row=2, column=0, sticky=tk.W)
-        self.status_label = ttk.Label(self.main_frame, text="检测中...", foreground="#666666")
+        self.status_label = ttk.Label(self.main_frame, text="未登录", foreground="#666666")
         self.status_label.grid(row=2, column=1, sticky=tk.W)
         
         # 登录按钮
@@ -125,11 +125,6 @@ class NetFucker:
             self.login_button.config(state='disabled')
             self.status_label.config(text="登录中...", foreground="#666666")
             
-            # 登录前检测网络状态
-            if not self.check_network_status(3):
-                self.log("网络连接不稳定，请检查网络后重试")
-                return
-            
             mac = self.mac_label.cget("text").replace(":", "-")
             ip = self.ip_label.cget("text")
             
@@ -189,7 +184,7 @@ class NetFucker:
                 if response.status_code == 200:
                     self.status_label.config(text="登录成功", foreground="#28a745")
                     self.log("登录成功")
-                    # 登录成功后再次检测网络状态
+                    # 登录成功后检测网络状态
                     threading.Thread(target=lambda: self.check_network_status(3), daemon=True).start()
                 else:
                     raise Exception(f"登录失败: HTTP {response.status_code}")
