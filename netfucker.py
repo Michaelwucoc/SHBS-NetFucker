@@ -19,7 +19,7 @@ class NetFucker:
     def __init__(self):
         self.root = tk.Tk()
         self.current_version = "v20250306_01"  # 定义为GitHub Release版本号
-        self.release = False  # 控制是否进行GitHub Actions构建和发布
+        self.release = True  # 控制是否进行GitHub Actions构建和发布
         self.root.title(f"SHBS NetFucker {self.current_version}")
         self.root.geometry("600x700")
         self.root.configure(bg='#f0f0f0')
@@ -93,17 +93,9 @@ class NetFucker:
         self.online_count_label = ttk.Label(stats_frame, text="0", foreground="#666666")
         self.online_count_label.grid(row=0, column=1, sticky=tk.W)
         
-        ttk.Label(stats_frame, text="总网络上传:").grid(row=1, column=0, sticky=tk.W)
-        self.total_network_upload_label = ttk.Label(stats_frame, text="0 B", foreground="#666666")
-        self.total_network_upload_label.grid(row=1, column=1, sticky=tk.W)
-        
-        ttk.Label(stats_frame, text="总网络下载:").grid(row=2, column=0, sticky=tk.W)
-        self.total_network_download_label = ttk.Label(stats_frame, text="0 B", foreground="#666666")
-        self.total_network_download_label.grid(row=2, column=1, sticky=tk.W)
-        
         # 操作按钮区域
         operation_frame = ttk.LabelFrame(self.main_frame, text="操作", padding="10")
-        operation_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
+        operation_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
         
         # 网络连接按钮
         network_frame = ttk.Frame(operation_frame)
@@ -117,7 +109,7 @@ class NetFucker:
         
         # 版本控制区域
         version_frame = ttk.LabelFrame(self.main_frame, text="版本信息", padding="10")
-        version_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
+        version_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
         
         version_info_frame = ttk.Frame(version_frame)
         version_info_frame.pack(fill=tk.X, pady=5)
@@ -134,9 +126,7 @@ class NetFucker:
         self.check_update_button = ttk.Button(update_button_frame, text="检查更新", command=self.check_update, style="Action.TButton")
         self.check_update_button.pack(expand=True, padx=5)
         
-        # 网络提示信息
-        self.network_hint = ttk.Label(self.main_frame, text="如果无法登陆，请连接到wlan-teacher网络", foreground="#666666")
-        self.network_hint.grid(row=4, column=0, columnspan=2, pady=5)
+    
         
         # 日志显示区域
         log_frame = ttk.LabelFrame(self.main_frame, text="运行日志", padding="5")
@@ -169,7 +159,7 @@ class NetFucker:
             try:
                 import websocket
                 self.ws = websocket.WebSocketApp(
-                    "ws://localhost:3000",
+                    "wss://api.shbs.club",
                     on_message=self.on_ws_message,
                     on_error=self.on_ws_error,
                     on_close=self.on_ws_close,
@@ -224,12 +214,6 @@ class NetFucker:
     def update_stats_display(self, data):
         # 更新在线用户数
         self.online_count_label.config(text=str(data.get('online_count', 0)))
-        
-        # 更新总网络流量
-        total_upload = data.get('total_upload', 0)
-        total_download = data.get('total_download', 0)
-        self.total_network_upload_label.config(text=self.format_total_traffic(total_upload))
-        self.total_network_download_label.config(text=self.format_total_traffic(total_download))
     
     def log(self, message):
         self.log_text.insert(tk.END, f"{time.strftime('%Y-%m-%d %H:%M:%S')} {message}\n")
@@ -260,7 +244,7 @@ class NetFucker:
         # 根据成功次数判断网络状态
         if success_count >= times/2:
             avg_latency = total_latency / success_count if success_count > 0 else 0
-            status_text = f"已连接 (平均延迟: {avg_latency:.2f}ms)"
+            status_text = f"已连接到因特网 (平均延迟: {avg_latency:.2f}ms)"
             self.status_label.config(text=status_text, foreground="#28a745")
             return True
         else:
