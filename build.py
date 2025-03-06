@@ -58,7 +58,6 @@ def build_app():
             '--name=NetFucker',
             '--noconsole',
             '--onefile',
-            f'--add-data=requirements.txt{os.pathsep}.',
             '--hidden-import=tkinter',
             '--hidden-import=tkinter.ttk',
             '--hidden-import=tkinter.scrolledtext',

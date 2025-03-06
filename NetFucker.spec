@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('requirements.txt', '.')]
+datas = []
 binaries = []
 hiddenimports = []
 tmp_ret = collect_all('tkinter')
