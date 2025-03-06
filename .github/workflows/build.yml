@@ -61,7 +61,8 @@ jobs:
           cd dist
           powershell -Command "Compress-Archive -Path NetFucker.exe -DestinationPath ../NetFucker_Windows.zip -Force"
         else
-          cd dist && zip -r ../NetFucker_Darwin.zip NetFucker.app
+          cd dist
+          zip -r ../NetFucker_Darwin.zip NetFucker
         fi
       shell: bash
     

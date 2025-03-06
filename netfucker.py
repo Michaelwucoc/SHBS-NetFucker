@@ -103,28 +103,24 @@ class NetFucker:
     def check_network_status(self, times=1):
         success_count = 0
         total_latency = 0
-        test_host = "baidu.com" if self.os_type == "Windows" else "baidu.com"
-        ping_cmd = ['ping', '-n', '1', test_host] if self.os_type == "Windows" else ['ping', '-c', '1', test_host]
+        test_url = "http://www.baidu.com"
         
         for i in range(times):
             try:
                 start_time = time.time()
-                result = subprocess.run(ping_cmd, 
-                                      stdout=subprocess.PIPE, 
-                                      stderr=subprocess.PIPE,
-                                      timeout=1)
+                response = requests.get(test_url, timeout=2)
                 end_time = time.time()
                 latency = (end_time - start_time) * 1000  # 转换为毫秒
                 
-                if result.returncode == 0:
+                if response.status_code == 200:
                     success_count += 1
                     total_latency += latency
-                    self.log(f"Ping #{i+1}: 成功 - 延迟: {latency:.2f}ms")
+                    self.log(f"网络检测 #{i+1}: 成功 - 延迟: {latency:.2f}ms")
                 else:
-                    self.log(f"Ping #{i+1}: 失败")
-                time.sleep(1)  # 每次ping间隔1秒
+                    self.log(f"网络检测 #{i+1}: 失败 - HTTP状态码: {response.status_code}")
+                time.sleep(1)  # 每次检测间隔1秒
             except Exception as e:
-                self.log(f"Ping #{i+1}: 错误 - {str(e)}")
+                self.log(f"网络检测 #{i+1}: 错误 - {str(e)}")
         
         # 根据成功次数判断网络状态
         if success_count >= times/2:
@@ -333,9 +329,27 @@ class NetFucker:
 
     
     def check_update(self):
+        def update_gui(state, text):
+            self.check_update_button.config(state=state)
+            self.latest_version_label.config(text=text)
+        
+        def handle_update_result(success, version=None, error=None):
+            if success:
+                if version != self.current_version:
+                    message = f"发现新版本 {version}\n\n是否前往下载页面？"
+                    if messagebox.askyesno("更新提示", message):
+                        webbrowser.open(f"https://github.com/Michaelwucoc/SHBS-NetFucker/releases/tag/{version}")
+                else:
+                    self.log("当前已是最新版本")
+            else:
+                self.log(f"检查更新错误: {error}")
+            
+            # 恢复按钮状态
+            self.root.after(0, lambda: update_gui('normal', f"最新版本: {version if version else '检查失败'}"))
+        
         try:
-            self.check_update_button.config(state='disabled')
-            self.latest_version_label.config(text="最新版本: 检查中...")
+            # 禁用更新按钮
+            self.root.after(0, lambda: update_gui('disabled', "最新版本: 检查中..."))
             
             # 获取GitHub最新release版本
             response = requests.get(
@@ -346,23 +360,13 @@ class NetFucker:
             if response.status_code == 200:
                 release_info = response.json()
                 latest_version = release_info['tag_name']
-                self.latest_version_label.config(text=f"最新版本: {latest_version}")
-                
-                # 比较版本号
-                if latest_version != self.current_version:
-                    download_url = release_info['html_url']
-                    message = f"发现新版本 {latest_version}\n\n是否前往下载页面？"
-                    if messagebox.askyesno("更新提示", message):
-                        webbrowser.open(download_url)
-                else:
-                    self.log("当前已是最新版本")
+                self.root.after(0, lambda: handle_update_result(True, latest_version))
             else:
-                self.latest_version_label.config(text="最新版本: 检查失败")
-                self.log(f"检查更新失败: HTTP {response.status_code}")
+                self.root.after(0, lambda: handle_update_result(False, error=f"HTTP {response.status_code}"))
                 
         except Exception as e:
-            self.latest_version_label.config(text="最新版本: 检查失败")
-            self.log(f"检查更新错误: {str(e)}")
+            self.root.after(0, lambda: handle_update_result(False, error=str(e)))
+
         finally:
             self.check_update_button.config(state='normal')
     
