@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['/Users/wujian/Documents/SHBS NetFucker/netfucker.py'],
+    ['netfucker.py'],
     pathex=[],
     binaries=[],
     datas=[],
@@ -35,10 +35,11 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=['icon.ico'],
 )
 app = BUNDLE(
     exe,
     name='NetFucker.app',
-    icon=None,
+    icon='icon.ico',
     bundle_identifier=None,
 )

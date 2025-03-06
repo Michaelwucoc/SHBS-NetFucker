@@ -5,19 +5,29 @@ import subprocess
 import shutil
 from pathlib import Path
 
-def get_platform():
-    system = platform.system().lower()
-    if system == 'darwin':
-        return 'macos'
-    elif system == 'windows':
-        return 'windows'
+def select_platform():
+    print('请选择编译目标平台:')
+    print('1 = Windows')
+    print('2 = macOS')
+    print('A = 所有平台')
+    choice = input('请输入选择 (1/2/A): ').strip().upper()
+    
+    if choice == '1':
+        return ['windows']
+    elif choice == '2':
+        return ['macos']
+    elif choice == 'A':
+        return ['windows', 'macos']
     else:
-        raise Exception(f'不支持的操作系统: {system}')
+        raise Exception('无效的选择')
 
 def build_app():
-    # 获取当前平台
-    current_platform = get_platform()
-    print(f'当前平台: {current_platform}')
+    # 获取用户选择的平台
+    try:
+        platforms = select_platform()
+    except Exception as e:
+        print(f'错误: {str(e)}')
+        return
     
     # 确保PyInstaller已安装
     try:
@@ -37,60 +47,64 @@ def build_app():
     if dist_dir.exists():
         shutil.rmtree(dist_dir)
     
-    # 基本的PyInstaller命令
-    pyinstaller_args = [
-        'pyinstaller',
-        '--clean',
-        '--name=NetFucker',
-        '--noconsole',
-        '--onefile',
-        'netfucker.py'
-    ]
+    # 遍历选择的平台进行构建
+    for platform_name in platforms:
+        print(f'\n开始构建 {platform_name} 版本...')
+        
+        # 基本的PyInstaller命令
+        pyinstaller_args = [
+            'pyinstaller',
+            '--clean',
+            '--name=NetFucker',
+            '--noconsole',
+            '--onefile',
+            'netfucker.py'
+        ]
+        
+        # 根据平台添加特定选项
+        if platform_name == 'macos':
+            pyinstaller_args.extend([
+                '--windowed',
+                '--icon=icon.icns',  # 如果有图标的话
+                '--target-arch=universal2',  # 支持Intel和Apple Silicon
+            ])
+        elif platform_name == 'windows':
+            pyinstaller_args.extend([
+                '--windowed',
+                '--icon=icon.ico',  # 如果有图标的话
+            ])
+        
+        # 执行构建
+        print(f'正在构建 {platform_name} 版本...')
+        subprocess.run(pyinstaller_args, check=True)
+        
+        # 处理构建结果
+        if platform_name == 'macos':
+            # 压缩macOS应用
+            app_path = dist_dir / 'NetFucker.app'
+            if app_path.exists():
+                zip_name = 'NetFucker_Darwin.zip'
+                shutil.make_archive(
+                    str(dist_dir / 'NetFucker_Darwin'),
+                    'zip',
+                    dist_dir,
+                    'NetFucker.app'
+                )
+                print(f'已创建macOS应用压缩包: {zip_name}')
+        elif platform_name == 'windows':
+            # 压缩Windows可执行文件
+            exe_path = dist_dir / 'NetFucker.exe'
+            if exe_path.exists():
+                zip_name = 'NetFucker_Windows.zip'
+                shutil.make_archive(
+                    str(dist_dir / 'NetFucker_Windows'),
+                    'zip',
+                    dist_dir,
+                    'NetFucker.exe'
+                )
+                print(f'已创建Windows可执行文件压缩包: {zip_name}')
     
-    # 根据平台添加特定选项
-    if current_platform == 'macos':
-        pyinstaller_args.extend([
-            '--windowed',
-            '--icon=icon.icns',  # 如果有图标的话
-            '--target-arch=universal2',  # 支持Intel和Apple Silicon
-        ])
-    elif current_platform == 'windows':
-        pyinstaller_args.extend([
-            '--windowed',
-            '--icon=icon.ico',  # 如果有图标的话
-        ])
-    
-    # 执行构建
-    print('开始构建...')
-    subprocess.run(pyinstaller_args, check=True)
-    
-    # 处理构建结果
-    if current_platform == 'macos':
-        # 压缩macOS应用
-        app_path = dist_dir / 'NetFucker.app'
-        if app_path.exists():
-            zip_name = 'NetFucker_Darwin.zip'
-            shutil.make_archive(
-                str(dist_dir / 'NetFucker_Darwin'),
-                'zip',
-                dist_dir,
-                'NetFucker.app'
-            )
-            print(f'已创建macOS应用压缩包: {zip_name}')
-    elif current_platform == 'windows':
-        # 压缩Windows可执行文件
-        exe_path = dist_dir / 'NetFucker.exe'
-        if exe_path.exists():
-            zip_name = 'NetFucker_Windows.zip'
-            shutil.make_archive(
-                str(dist_dir / 'NetFucker_Windows'),
-                'zip',
-                dist_dir,
-                'NetFucker.exe'
-            )
-            print(f'已创建Windows可执行文件压缩包: {zip_name}')
-    
-    print('构建完成!')
+    print('\n所有平台构建完成!')
 
 if __name__ == '__main__':
     try:
