@@ -1,4 +1,3 @@
-tkinter
 uuid
 socket
 requests
