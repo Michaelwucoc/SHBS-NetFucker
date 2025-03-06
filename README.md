@@ -13,4 +13,4 @@
 3. Free to surf Internet!
 
 ## Reminder
-Gaming service are automatically bypassed!
+Gaming service are automatically bypassed :D
