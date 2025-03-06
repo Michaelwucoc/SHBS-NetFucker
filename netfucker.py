@@ -40,11 +40,17 @@ class NetFucker:
         self.status_label = ttk.Label(self.main_frame, text="未登录", foreground="#666666")
         self.status_label.grid(row=2, column=1, sticky=tk.W)
         
+        # 连接网络按钮
+        self.connect_button = ttk.Button(self.main_frame, text="连接网络", command=self.connect_wifi, style='Custom.TButton')
+        self.connect_button.grid(row=3, column=0, pady=5)
+        
         # 登录按钮
-        style = ttk.Style()
-        style.configure('Custom.TButton', padding=5)
         self.login_button = ttk.Button(self.main_frame, text="登录", command=self.login, style='Custom.TButton')
-        self.login_button.grid(row=3, column=0, columnspan=2, pady=10)
+        self.login_button.grid(row=3, column=1, pady=5)
+        
+        # 网络提示信息
+        self.network_hint = ttk.Label(self.main_frame, text="请先连接到wlan-teacher网络", foreground="#666666")
+        self.network_hint.grid(row=4, column=0, columnspan=2, pady=5)
         
         # 日志显示区域
         log_frame = ttk.LabelFrame(self.main_frame, text="运行日志", padding="5")
@@ -204,6 +210,42 @@ class NetFucker:
         finally:
             # 恢复登录按钮状态
             self.login_button.config(state='normal')
+
+    
+    def connect_wifi(self):
+        try:
+            # 禁用连接按钮，防止重复点击
+            self.connect_button.config(state='disabled')
+            self.status_label.config(text="连接中...", foreground="#666666")
+            self.log("正在尝试连接wlan-teacher网络...")
+            
+            # 使用networksetup命令连接到wlan-teacher网络
+            result = subprocess.run(
+                ['networksetup', '-setairportnetwork', 'en0', 'wlan-teacher'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            
+            if result.returncode == 0:
+                self.log("成功连接到wlan-teacher网络")
+                self.status_label.config(text="已连接到wlan-teacher", foreground="#28a745")
+                # 连接成功后更新IP地址
+                self.init_system_info()
+                # 检查网络状态
+                threading.Thread(target=lambda: self.check_network_status(3), daemon=True).start()
+            else:
+                error_msg = result.stderr.strip() or "连接失败"
+                self.log(f"连接错误: {error_msg}")
+                self.status_label.config(text="连接失败", foreground="#dc3545")
+                
+        except Exception as e:
+            self.log(f"连接错误: {str(e)}")
+            self.status_label.config(text="连接错误", foreground="#dc3545")
+            
+        finally:
+            # 恢复连接按钮状态
+            self.connect_button.config(state='normal')
 
     
     def run(self):
