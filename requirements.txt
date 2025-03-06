@@ -1,5 +1,0 @@
-uuid
-socket
-requests
-urllib3
-pyinstaller
