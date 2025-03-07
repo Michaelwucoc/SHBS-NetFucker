@@ -43,7 +43,8 @@ class NetFucker:
         self.online_users = []
         self.total_network_upload = 0
         self.total_network_download = 0
-        
+        # NABABA↗ NABABA↘ NABABA↗ NABABA↘
+
         # 系统信息显示
         info_frame = ttk.LabelFrame(self.main_frame, text="系统信息", padding="5")
         info_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
