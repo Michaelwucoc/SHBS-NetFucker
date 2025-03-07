@@ -18,7 +18,7 @@ import websocket
 class NetFucker:
     def __init__(self):
         self.root = tk.Tk()
-        self.current_version = "v20250307_01"  # 定义为GitHub Release版本号
+        self.current_version = "v20250307_02"  # 定义为GitHub Release版本号
         self.release = True  # 控制是否进行GitHub Actions构建和发布
         self.root.title(f"SHBS NetFucker {self.current_version}")
         self.root.geometry("600x700")

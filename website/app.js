@@ -1,5 +1,5 @@
 // 当前版本号
-const CURRENT_VERSION = "v20250307_01";
+const CURRENT_VERSION = "v20250307_02";
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 绑定按钮事件
     document.getElementById('login').addEventListener('click', login);
-    document.getElementById('check-update').addEventListener('click', checkUpdate);
+    //document.getElementById('check-update').addEventListener('click', checkUpdate);
     document.getElementById('close-modal').addEventListener('click', () => {
         document.getElementById('update-modal').style.display = 'none';
     });
@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('official-download').addEventListener('click', () => downloadUpdate('official'));
     
     // 初始检查更新
-    checkUpdate();
     
     // 初始网络检测
     checkWifiConnection();
@@ -185,45 +184,8 @@ async function checkNetworkStatus(times = 1) {
 }
 
 // 检查更新
-async function checkUpdate() {
-    const button = document.getElementById('check-update');
-    const versionLabel = document.getElementById('latest-version');
-    button.disabled = true;
-    versionLabel.textContent = '最新版本: 检查中...';
-    
-    try {
-        const apiUrl = 'https://api.github.com/repos/Michaelwucoc/SHBS-NetFucker/releases/latest';
-        log(`正在从${apiUrl}获取最新版本信息...`);
-        
-        const response = await fetch(apiUrl);
-        if (response.ok) {
-            const releaseInfo = await response.json();
-            const latestVersion = releaseInfo.tag_name;
-            log(`获取到最新版本: ${latestVersion}`);
-            
-            if (latestVersion !== CURRENT_VERSION) {
-                showUpdateModal(latestVersion);
-            } else {
-                log('当前已是最新版本');
-            }
-            
-            versionLabel.textContent = `最新版本: ${latestVersion}`;
-        } else {
-            throw new Error(`HTTP ${response.status}`);
-        }
-    } catch (error) {
-        log(`检查更新错误: ${error.message}`);
-        versionLabel.textContent = '最新版本: 检查失败';
-    } finally {
-        button.disabled = false;
-    }
-}
 
-// 显示更新对话框
-function showUpdateModal(version) {
-    document.getElementById('update-version').textContent = `发现新版本: ${version}`;
-    document.getElementById('update-modal').style.display = 'block';
-}
+
 
 // 下载更新
 function downloadUpdate(source) {
