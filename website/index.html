@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHBS NetFucker Web</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>SHBS NetFucker Web</h1>
+            <div id="version-info">
+                <span id="current-version">当前版本: 加载中...</span>
+                <span id="latest-version">最新版本: 检查中...</span>
+                <button id="check-update" class="btn">检查更新</button>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2>浏览器设置说明</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <p class="warning-text">由于安全策略，首次使用需要修改浏览器设置。如果不会改或者使用手机，请尝试<a href="http://vfpj89ks.cdnyes.cn/" target="_blank">点我进备用</a></p>
+                    <div class="browser-steps">
+                        <details>
+                            <summary>Chrome / Edge 浏览器设置方法</summary>
+                            <ol class="setup-steps">
+                                <li>在地址栏输入: <code>chrome://flags/#unsafely-treat-insecure-origin-as-secure</code></li>
+                                <li>在输入框中添加: <code>http://172.16.1.4:8080</code></li>
+                                <li>将下拉菜单改为 "Enabled"</li>
+                                <li>点击右下角 "Relaunch" 重启浏览器</li>
+                            </ol>
+                        </details>
+
+                        <details>
+                            <summary>Firefox 浏览器设置方法</summary>
+                            <ol class="setup-steps">
+                                <li>在地址栏输入: <code>about:config</code></li>
+                                <li>点击"接受风险并继续"</li>
+                                <li>搜索: <code>security.mixed_content.block_active_content</code></li>
+                                <li>双击将值改为 false</li>
+                                <li>重启浏览器</li>
+                            </ol>
+                        </details>
+
+                        <details>
+                            <summary>Safari 浏览器设置方法</summary>
+                            <ol class="setup-steps">
+                                <li>点击"Safari" > "设置"</li>
+                                <li>进入"隐私与安全性"</li>
+                                <li>取消勾选"防止跨站跟踪"</li>
+                                <li>重启浏览器</li>
+                            </ol>
+                        </details>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2>系统信息</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>操作系统:</label>
+                    <span id="os-info">检测中...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="monitor-section">
+            <h2>网络监控</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>网络状态:</label>
+                    <span id="network-status" class="status">未连接</span>
+                </div>
+                <div class="info-item">
+                    <label>在线用户数:</label>
+                    <span id="online-users">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-section">
+            <h2>操作</h2>
+            <div class="button-group">
+                <button id="login" class="btn primary">登录</button>
+            </div>
+        </div>
+
+        <div class="log-section">
+            <h2>运行日志</h2>
+            <div id="log-container" class="log-container"></div>
+        </div>
+    </div>
+
+    <div id="update-modal" class="modal">
+        <div class="modal-content">
+            <h2>发现新版本</h2>
+            <p id="update-version"></p>
+            <div class="button-group">
+                <button id="mirror-download" class="btn">使用镜像站下载</button>
+                <button id="official-download" class="btn">使用官方源下载</button>
+                <button id="close-modal" class="btn secondary">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

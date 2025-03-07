@@ -165,6 +165,18 @@ exe = EXE(
                         'NetFucker.app'
                     )
                     print(f'已创建macOS应用压缩包: {zip_name}')
+                    
+                    # 打包website源码
+                    website_dir = root_dir / 'website'
+                    if website_dir.exists():
+                        website_zip = dist_dir / 'NetFucker_Web.zip'
+                        shutil.make_archive(
+                            str(dist_dir / 'NetFucker_Web'),
+                            'zip',
+                            root_dir,
+                            'website'
+                        )
+                        print('已创建网页版本压缩包: NetFucker_Web.zip')
             elif platform_name == 'windows':
                 # 压缩Windows可执行文件
                 exe_path = dist_dir / 'NetFucker.exe'
@@ -177,6 +189,18 @@ exe = EXE(
                         'NetFucker.exe'
                     )
                     print(f'已创建Windows可执行文件压缩包: {zip_name}')
+                    
+                    # 打包website源码
+                    website_dir = root_dir / 'website'
+                    if website_dir.exists():
+                        website_zip = dist_dir / 'NetFucker_Web.zip'
+                        shutil.make_archive(
+                            str(dist_dir / 'NetFucker_Web'),
+                            'zip',
+                            root_dir,
+                            'website'
+                        )
+                        print('已创建网页版本压缩包: NetFucker_Web.zip')
         except subprocess.CalledProcessError as e:
             print(f'构建 {platform_name} 版本失败: {str(e)}')
             continue
